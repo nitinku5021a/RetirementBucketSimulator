@@ -61,6 +61,16 @@ export default function App() {
   const [transferTo, setTransferTo] = useState(0); // to bucket 1
   const [transferAmount, setTransferAmount] = useState("");
 
+  // Input display states to handle empty vs zero values
+  const [inputValues, setInputValues] = useState({
+    corpus: "200",
+    firstYearExpenses: "3", 
+    inflation: "6",
+    allocations: ["10", "40", "10", "25", "15"],
+    avgReturns: ["4", "7", "8", "12", "16"],
+    volatilities: ["1", "2", "5", "15", "25"]
+  });
+
   // helper: allocation sum validation
   const allocationSum = useMemo(() => buckets.reduce((s, b) => s + Number(b.allocation || 0), 0), [buckets]);
 
@@ -265,6 +275,15 @@ export default function App() {
     setYear(0);
     setPendingYear(null);
     setTransferAmount("");
+    // Reset input display values to defaults
+    setInputValues({
+      corpus: "200",
+      firstYearExpenses: "3", 
+      inflation: "6",
+      allocations: ["10", "40", "10", "25", "15"],
+      avgReturns: ["4", "7", "8", "12", "16"],
+      volatilities: ["1", "2", "5", "15", "25"]
+    });
   }
 
   // Chart data from history
@@ -335,9 +354,10 @@ export default function App() {
                                    <input
                     className="mt-1 p-2 bg-gray-800 text-white rounded"
                     type="number"
-                    value={corpus === 0 ? "0" : (corpus / 100000 || "")}
+                    value={inputValues.corpus}
                     onChange={e => {
                       const value = e.target.value;
+                      setInputValues(prev => ({ ...prev, corpus: value }));
                       if (value === "" || value === null || value === undefined) {
                         setCorpus(0);
                       } else {
@@ -351,9 +371,10 @@ export default function App() {
                                    <input
                     className="mt-1 p-2 bg-gray-800 text-white rounded"
                     type="number"
-                    value={firstYearExpenses === 0 ? "0" : (firstYearExpenses / 100000 || "")}
+                    value={inputValues.firstYearExpenses}
                     onChange={e => {
                       const value = e.target.value;
+                      setInputValues(prev => ({ ...prev, firstYearExpenses: value }));
                       if (value === "" || value === null || value === undefined) {
                         setFirstYearExpenses(0);
                       } else {
@@ -367,9 +388,10 @@ export default function App() {
                                    <input 
                     className="mt-1 p-2 bg-gray-800 text-white rounded" 
                     type="number" 
-                    value={inflation === 0 ? "0" : (inflation || "")} 
+                    value={inputValues.inflation} 
                     onChange={e => {
                       const value = e.target.value;
+                      setInputValues(prev => ({ ...prev, inflation: value }));
                       if (value === "" || value === null || value === undefined) {
                         setInflation(0);
                       } else {
@@ -401,9 +423,13 @@ export default function App() {
                                            <input 
                         className="p-2 bg-gray-700 text-white rounded" 
                         type="number" 
-                        value={b.allocation === 0 ? "0" : (b.allocation || "")} 
+                        value={inputValues.allocations[idx]} 
                         onChange={e => {
                           const value = e.target.value;
+                          setInputValues(prev => ({
+                            ...prev,
+                            allocations: prev.allocations.map((v, i) => i === idx ? value : v)
+                          }));
                           if (value === "" || value === null || value === undefined) {
                             setBuckets(prev => prev.map((p,i)=> i===idx? {...p, allocation: 0}:p));
                           } else {
@@ -414,9 +440,13 @@ export default function App() {
                                            <input 
                         className="p-2 bg-gray-700 text-white rounded" 
                         type="number" 
-                        value={b.avgReturn === 0 ? "0" : (b.avgReturn || "")} 
+                        value={inputValues.avgReturns[idx]} 
                         onChange={e => {
                           const value = e.target.value;
+                          setInputValues(prev => ({
+                            ...prev,
+                            avgReturns: prev.avgReturns.map((v, i) => i === idx ? value : v)
+                          }));
                           if (value === "" || value === null || value === undefined) {
                             setBuckets(prev => prev.map((p,i)=> i===idx? {...p, avgReturn: 0}:p));
                           } else {
@@ -427,9 +457,13 @@ export default function App() {
                                            <input 
                         className="p-2 bg-gray-700 text-white rounded" 
                         type="number" 
-                        value={b.volatility === 0 ? "0" : (b.volatility || "")} 
+                        value={inputValues.volatilities[idx]} 
                         onChange={e => {
                           const value = e.target.value;
+                          setInputValues(prev => ({
+                            ...prev,
+                            volatilities: prev.volatilities.map((v, i) => i === idx ? value : v)
+                          }));
                           if (value === "" || value === null || value === undefined) {
                             setBuckets(prev => prev.map((p,i)=> i===idx? {...p, volatility: 0}:p));
                           } else {
