@@ -71,6 +71,17 @@ export default function App() {
       alert("Allocation % across buckets must total exactly 100");
       return;
     }
+    
+    // Track simulation start
+    if (window.gtag) {
+      window.gtag('event', 'simulation_started', {
+        'simulation_mode': modeManual ? 'manual' : 'auto',
+        'corpus_amount': corpus / 100000,
+        'first_year_expenses': firstYearExpenses / 100000,
+        'inflation_rate': inflation
+      });
+    }
+    
     const initBalances = buckets.map(b => (corpus * (b.allocation / 100)));
     setBalances(initBalances);
     setHistory([]);
@@ -88,6 +99,14 @@ export default function App() {
     if (pendingYear) {
       alert("You have a pending transfer requirement. Fix transfers before advancing.");
       return;
+    }
+    
+    // Track next year action
+    if (window.gtag) {
+      window.gtag('event', 'next_year_clicked', {
+        'current_year': year,
+        'simulation_mode': modeManual ? 'manual' : 'auto'
+      });
     }
 
     const nextYearIndex = year + 1;
@@ -184,6 +203,16 @@ export default function App() {
       alert("Not enough balance in chosen source bucket.");
       return;
     }
+    
+    // Track fund transfer
+    if (window.gtag) {
+      window.gtag('event', 'fund_transfer', {
+        'from_bucket': buckets[from]?.name || `Bucket ${from}`,
+        'to_bucket': buckets[to]?.name || `Bucket ${to}`,
+        'amount_lakh': amountLakh,
+        'simulation_mode': modeManual ? 'manual' : 'auto'
+      });
+    }
 
     // apply transfer
     const newBalances = [...balances];
@@ -242,28 +271,38 @@ export default function App() {
   const chartData = useMemo(() => {
     if (!history || history.length === 0) return null;
     const labels = history.map(r => `Year ${r.year}`);
+    
+    // Define colors that match the card colors
+    const cardColors = [
+      "#2563EB", // bg-blue-600
+      "#16A34A", // bg-green-600
+      "#EAB308", // bg-yellow-500
+      "#9333EA", // bg-purple-600
+      "#EC4899"  // bg-pink-500
+    ];
+    
     const datasets = [
-      // Total corpus line (make it stand out)
+      // Total corpus line (distinct color)
       {
         label: "Total Corpus",
         data: history.map(r => r.total),
         fill: false,
-        borderColor: "#FFD700", // gold
+        borderColor: "#FFFFFF", // white - completely distinct from cards
         borderWidth: 4,
         pointRadius: 4,
-        pointBackgroundColor: "#FFD700",
+        pointBackgroundColor: "#FFFFFF",
         tension: 0.2,
         yAxisID: "y",
       },
-      // Individual buckets
+      // Individual buckets - matching card colors
       ...buckets.map((b, idx) => ({
         label: b.name,
         data: history.map(r => r.endValues[idx]),
         fill: false,
-        borderColor: `hsl(${(idx * 60) % 360} 70% 50%)`,
+        borderColor: cardColors[idx],
         borderWidth: 2,
         pointRadius: 2,
-        pointBackgroundColor: `hsl(${(idx * 60) % 360} 70% 50%)`,
+        pointBackgroundColor: cardColors[idx],
         tension: 0.2,
         yAxisID: "y",
       }))
@@ -276,7 +315,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
-      <h1 className="text-2xl font-semibold mb-4">Retirement Bucket Simulator</h1>
+      <h1 className="text-2xl font-semibold mb-4" align="center">Retirement Bucket Simulator</h1>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4">
@@ -287,66 +326,219 @@ export default function App() {
 
       {/* INPUTS TAB */}
       {tab === "inputs" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <label className="flex flex-col">
-              Starting Corpus (Lakh)
-              <input
-                className="mt-1 p-2 bg-gray-800 text-white rounded"
-                type="number"
-                value={corpus / 100000}
-                onChange={e => setCorpus(Number(e.target.value) * 100000)}
-              />
-            </label>
-            <label className="flex flex-col">
-              First-year Annual Expenses (Lakh)
-              <input
-                className="mt-1 p-2 bg-gray-800 text-white rounded"
-                type="number"
-                value={firstYearExpenses / 100000}
-                onChange={e => setFirstYearExpenses(Number(e.target.value) * 100000)}
-              />
-            </label>
-            <label className="flex flex-col">
-              Inflation %
-              <input className="mt-1 p-2 bg-gray-800 text-white rounded" type="number" value={inflation} onChange={e => setInflation(Number(e.target.value))} />
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={modeManual} onChange={e => setModeManual(e.target.checked)} />
-              Manual Transfer Mode (if checked, simulation pauses when Liquid Funds are short)
-            </label>
+        <div className="grid grid-cols-10 gap-6">
+          {/* Left side - 70% */}
+          <div className="col-span-7 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                             <label className="flex flex-col">
+                 Starting Corpus (Lakh)
+                                   <input
+                    className="mt-1 p-2 bg-gray-800 text-white rounded"
+                    type="number"
+                    value={corpus === 0 ? "0" : (corpus / 100000 || "")}
+                    onChange={e => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setCorpus(0);
+                      } else {
+                        setCorpus(Number(value) * 100000);
+                      }
+                    }}
+                  />
+               </label>
+               <label className="flex flex-col">
+                 First-year Annual Expenses (Lakh)
+                                   <input
+                    className="mt-1 p-2 bg-gray-800 text-white rounded"
+                    type="number"
+                    value={firstYearExpenses === 0 ? "0" : (firstYearExpenses / 100000 || "")}
+                    onChange={e => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setFirstYearExpenses(0);
+                      } else {
+                        setFirstYearExpenses(Number(value) * 100000);
+                      }
+                    }}
+                  />
+               </label>
+                             <label className="flex flex-col">
+                 Inflation %
+                                   <input 
+                    className="mt-1 p-2 bg-gray-800 text-white rounded" 
+                    type="number" 
+                    value={inflation === 0 ? "0" : (inflation || "")} 
+                    onChange={e => {
+                      const value = e.target.value;
+                      if (value === "" || value === null || value === undefined) {
+                        setInflation(0);
+                      } else {
+                        setInflation(Number(value));
+                      }
+                    }} 
+                  />
+               </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={modeManual} onChange={e => setModeManual(e.target.checked)} />
+                Manual Transfer Mode (if checked, simulation pauses when Liquid Funds are short)
+              </label>
+            </div>
+
+            <div className="mt-2">
+              {/* Buckets Heading */}
+              <div className="text-sm mb-2 font-semibold">Buckets (allocation must total 100%) — input values are editable</div>
+              {/* Buckets Table */}
+              <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-4 gap-2 items-center bg-gray-700 p-2 rounded font-semibold text-gray-200">
+                  <div>Name</div>
+                  <div>Allocation %</div>
+                  <div>Avg Return %</div>
+                  <div>Volatility %</div>
+                </div>
+                                 {buckets.map((b, idx) => (
+                   <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-gray-800 p-3 rounded">
+                     <div>{b.name}</div>
+                                           <input 
+                        className="p-2 bg-gray-700 text-white rounded" 
+                        type="number" 
+                        value={b.allocation === 0 ? "0" : (b.allocation || "")} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (value === "" || value === null || value === undefined) {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, allocation: 0}:p));
+                          } else {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, allocation: Number(value)}:p));
+                          }
+                        }} 
+                      />
+                                           <input 
+                        className="p-2 bg-gray-700 text-white rounded" 
+                        type="number" 
+                        value={b.avgReturn === 0 ? "0" : (b.avgReturn || "")} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (value === "" || value === null || value === undefined) {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, avgReturn: 0}:p));
+                          } else {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, avgReturn: Number(value)}:p));
+                          }
+                        }} 
+                      />
+                                           <input 
+                        className="p-2 bg-gray-700 text-white rounded" 
+                        type="number" 
+                        value={b.volatility === 0 ? "0" : (b.volatility || "")} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (value === "" || value === null || value === undefined) {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, volatility: 0}:p));
+                          } else {
+                            setBuckets(prev => prev.map((p,i)=> i===idx? {...p, volatility: Number(value)}:p));
+                          }
+                        }} 
+                      />
+                   </div>
+                 ))}
+              </div>
+              <div className="mt-2">Total allocation: <span className={allocationSum!==100? "text-red-400":"text-green-400"}>{allocationSum}%</span></div>
+              <div className="mt-4">
+                <button
+                  className="px-4 py-2 bg-green-600 rounded"
+                  onClick={startSimulation}
+                >
+                  {modeManual ? "Manual Simulation" : "Auto Simulation"}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-2">
-            {/* Buckets Heading */}
-            <div className="text-sm mb-2 font-semibold">Buckets (allocation must total 100%) — input values are editable</div>
-            {/* Buckets Table */}
-            <div className="grid grid-cols-1 gap-2">
-              <div className="grid grid-cols-4 gap-2 items-center bg-gray-700 p-2 rounded font-semibold text-gray-200">
-                <div>Name</div>
-                <div>Allocation %</div>
-                <div>Avg Return %</div>
-                <div>Volatility %</div>
+          {/* Right side - 30% */}
+          <div className="col-span-3 bg-white text-gray-900 p-6 rounded-lg">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">How to Use This App</h2>
+            
+            <div className="space-y-4 text-sm">
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">1. Setup Phase</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  <li>Enter your starting retirement corpus (in lakhs)</li>
+                  <li>Set your first-year annual expenses</li>
+                  <li>Choose expected inflation rate</li>
+                  <li>Select simulation mode (Auto/Manual)</li>
+                </ul>
               </div>
-              {buckets.map((b, idx) => (
-                <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-gray-800 p-3 rounded">
-                  <div>{b.name}</div>
-                  <input className="p-2 bg-gray-700 text-white rounded" type="number" value={b.allocation} onChange={e => setBuckets(prev => prev.map((p,i)=> i===idx? {...p, allocation: Number(e.target.value)}:p))} />
-                  <input className="p-2 bg-gray-700 text-white rounded" type="number" value={b.avgReturn} onChange={e => setBuckets(prev => prev.map((p,i)=> i===idx? {...p, avgReturn: Number(e.target.value)}:p))} />
-                  <input className="p-2 bg-gray-700 text-white rounded" type="number" value={b.volatility} onChange={e => setBuckets(prev => prev.map((p,i)=> i===idx? {...p, volatility: Number(e.target.value)}:p))} />
+
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">2. Bucket Configuration</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  <li>Configure 5 investment buckets</li>
+                  <li>Set allocation percentages (must total 100%)</li>
+                  <li>Define expected returns and volatility</li>
+                  <li>All values are editable</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">3. Simulation Modes</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium text-blue-600">Auto Mode:</span>
+                    <p className="text-gray-700 text-xs mt-1">Automatically withdraws from buckets in order when Liquid Funds are insufficient</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-orange-600">Manual Mode:</span>
+                    <p className="text-gray-700 text-xs mt-1">Pauses simulation when Liquid Funds are short, requires manual transfers</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="mt-2">Total allocation: <span className={allocationSum!==100? "text-red-400":"text-green-400"}>{allocationSum}%</span></div>
-            <div className="mt-4">
-              <button
-                className="px-4 py-2 bg-green-600 rounded"
-                onClick={startSimulation}
-              >
-                {modeManual ? "Manual Simulation" : "Auto Simulation"}
-              </button>
-            </div>
-          </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">4. Running Simulation</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  <li>Click "Start Simulation" to begin</li>
+                  <li>Use "Next Year" button to advance</li>
+                  <li>Monitor bucket balances and returns</li>
+                  <li>View charts and detailed history</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">5. Key Features</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  <li>Correlated returns simulation</li>
+                  <li>Real-time balance tracking</li>
+                  <li>Interactive charts</li>
+                  <li>Manual fund transfers</li>
+                  <li>Year-by-year history</li>
+                </ul>
+              </div>
+
+                             <div className="bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                 <p className="text-blue-800 text-xs">
+                   <strong>Tip:</strong> Start with Auto mode to understand the flow, then switch to Manual mode for more control over your retirement strategy.
+                 </p>
+               </div>
+
+               <div className="bg-green-50 p-3 rounded border-l-4 border-green-400">
+                 <h3 className="font-semibold text-green-800 mb-2">Support This Project</h3>
+                 <p className="text-green-700 text-xs mb-2">
+                   If you find this retirement simulator helpful, consider supporting its development:
+                 </p>
+                                     <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                       <span className="text-green-600 font-medium text-xs">UPI ID:</span>
+                       <span className="text-green-800 font-mono text-xs">nitinkr@icici</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-600 font-medium text-xs">Contact:</span>
+                       <span className="text-green-800 font-mono text-xs">learnkapi@gmail.com</span>
+                     </div>
+                    <div className="text-green-600 text-xs font-medium">
+                      Any amount is appreciated! 🙏
+                    </div>
+                  </div>
+               </div>
+             </div>
+           </div>
         </div>
       )}
 
