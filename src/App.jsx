@@ -107,31 +107,47 @@ export default function App() {
 
     const returnAmounts = newBalances.map((newBal, i) => (newBal - balances[i]));
 
-    // 2) attempt withdrawal from Bucket 1 (Liquid Funds)
-    if (newBalances[0] >= expenseThisYear) {
-      newBalances[0] -= expenseThisYear;
-      // record row
-      pushHistoryRow(nextYearIndex, returnAmounts, newBalances);
-      setBalances(newBalances);
+    // 2) withdrawal logic
+    if (modeManual) {
+      // Manual mode: only withdraw from Bucket 1, require transfer if insufficient
+      if (newBalances[0] >= expenseThisYear) {
+        newBalances[0] -= expenseThisYear;
+        pushHistoryRow(nextYearIndex, returnAmounts, newBalances);
+        setBalances(newBalances);
+        setYear(nextYearIndex);
+        return;
+      }
+      // Bucket1 insufficient
+      const shortfall = expenseThisYear - newBalances[0];
+      setPendingYear({
+        year: nextYearIndex,
+        returnsPct,
+        returnAmounts,
+        balancesBeforeWithdrawal: [...newBalances],
+        expenseThisYear,
+        shortfall
+      });
+      alert("Liquid Fund cannot cover the current expense. Please transfer funds to Liquid Fund before proceeding.");
+      return;
+    } else {
+      // Auto mode: withdraw from buckets in order until expense is covered
+      let remainingExpense = expenseThisYear;
+      let autoBalances = [...newBalances];
+      for (let i = 0; i < autoBalances.length; i++) {
+        const take = Math.min(autoBalances[i], remainingExpense);
+        autoBalances[i] -= take;
+        remainingExpense -= take;
+        if (remainingExpense <= 0) break;
+      }
+      // If not enough in all buckets, set all to zero
+      if (remainingExpense > 0) {
+        autoBalances = autoBalances.map(() => 0);
+      }
+      pushHistoryRow(nextYearIndex, returnAmounts, autoBalances);
+      setBalances(autoBalances);
       setYear(nextYearIndex);
       return;
     }
-
-    // Bucket1 insufficient
-    const shortfall = expenseThisYear - newBalances[0];
-
-    // Always require manual transfer if Liquid Fund can't cover expense
-    setPendingYear({
-      year: nextYearIndex,
-      returnsPct,
-      returnAmounts,
-      balancesBeforeWithdrawal: [...newBalances],
-      expenseThisYear,
-      shortfall
-    });
-    alert("Liquid Fund cannot cover the current expense. Please transfer funds to Liquid Fund before proceeding.");
-    // do NOT change balances or history yet; wait for user transfers
-    return;
   }
 
   // push row into history. Note: we store returnAmounts (absolute) and endValues (numbers)
@@ -323,7 +339,12 @@ export default function App() {
             </div>
             <div className="mt-2">Total allocation: <span className={allocationSum!==100? "text-red-400":"text-green-400"}>{allocationSum}%</span></div>
             <div className="mt-4">
-              <button className="px-4 py-2 bg-green-600 rounded" onClick={startSimulation}>Start Simulation</button>
+              <button
+                className="px-4 py-2 bg-green-600 rounded"
+                onClick={startSimulation}
+              >
+                {modeManual ? "Manual Simulation" : "Auto Simulation"}
+              </button>
             </div>
           </div>
         </div>
@@ -339,7 +360,7 @@ export default function App() {
               <div className="text-xl font-bold">{year}</div>
             </div>
             <div className="flex-1 bg-gray-800 p-3 rounded">
-              <div className="text-sm">Bucket 1 cover suggestion</div>
+              <div className="text-sm">Liquid Funds cover suggestion</div>
               <div className="text-lg">
                 {balances && balances.length ? (
                   (() => {
@@ -347,7 +368,7 @@ export default function App() {
                     const expense = firstYearExpenses * Math.pow(1 + inflation/100, year);
                     if (expense <= 0) return "—";
                     const yrs = Math.floor((startingBucket1 / expense));
-                    return `Bucket 1 can support ~ ${yrs} year(s) at current expense`;
+                    return `Liquid Funds can support ~ ${yrs} year(s) at current expense`;
                   })()
                 ) : "—"}
               </div>
@@ -420,8 +441,8 @@ export default function App() {
                 {pendingYear && (
                   <div className="mt-4 p-3 bg-red-900/40 rounded">
                     <div className="font-semibold">Pending: Year {pendingYear.year}</div>
-                    <div className="text-sm">Bucket1 shortfall: ₹{fmt(pendingYear.shortfall)}</div>
-                    <div className="text-xs text-gray-300 mt-1">Please transfer to Bucket 1 (or other buckets) to resolve and then press Transfer. Once Bucket 1 has enough, the year will be committed.</div>
+                    <div className="text-sm">Liquid Funds shortfall: ₹{fmt(pendingYear.shortfall)}</div>
+                    <div className="text-xs text-gray-300 mt-1">Please transfer to Liquid Funds (or other buckets) to resolve and then press Transfer. Once Liquid Funds has enough, the year will be committed.</div>
                   </div>
                 )}
               </div>
