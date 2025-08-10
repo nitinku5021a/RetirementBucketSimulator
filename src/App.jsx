@@ -313,7 +313,7 @@ export default function App() {
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={modeManual} onChange={e => setModeManual(e.target.checked)} />
-              Manual Transfer Mode (if checked, simulation pauses when Bucket1 short)
+              Manual Transfer Mode (if checked, simulation pauses when Liquid Funds are short)
             </label>
           </div>
 
